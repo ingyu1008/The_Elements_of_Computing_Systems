@@ -12,3 +12,78 @@
 // the screen should remain fully clear as long as no key is pressed.
 
 // Put your code here.
+
+@1
+D = A;
+
+(SETWHITE)
+    @KBD
+    D = A;
+    @R0
+    M = D;
+    @SCREEN
+    D = A;
+    @R0
+    M = M - D; // R0 = &KBD - &SCREEN
+    (WHITESCREEN) //while (R0 >= 0)
+        @R0
+        D = M;
+        @ENDWHITESCREEN
+        D;JLT //if (R0 < 0) break;
+
+        @SCREEN
+        A = A + D;
+        M = 0; //RAM[&SCREEN + R0] = 0
+        @R0
+        M = M - 1;  //R0--;
+
+        @WHITESCREEN
+        0;JMP
+    (ENDWHITESCREEN)
+    (WAITFORKEYBOARD)
+        @KBD
+        D = M;
+        @WAITFORKEYBOARD
+        D;JEQ
+    (ENDWAITFORKEYBOARD)
+    @SETBLACK
+    0;JMP
+(ENDSETWHITE)
+
+(SETBLACK)
+    @KBD    
+    D = A;
+    @R0
+    M = D;
+    @SCREEN
+    D = A;
+    @R0
+    M = M - D; // R0 = &KBD - &SCREEN
+    (BLACKSCREEN) //while (R0 >= 0)
+        @R0
+        D = M;
+        @ENDBLACKSCREEN
+        D;JLT //if (R0 < 0) break;
+
+        @SCREEN
+        A = A + D;
+        M = -1; //RAM[&SCREEN + R0] = -1
+        @R0
+        M = M - 1;  //R0--;
+
+        @BLACKSCREEN
+        0;JMP
+    (ENDBLACKSCREEN)
+    (WAITFORKEYBOARD2)
+        @KBD
+        D = M;
+        @WAITFORKEYBOARD2
+        D;JNE
+    (ENDWAITFORKEYBOARD2)
+    @SETWHITE
+    0;JMP
+(ENDSETBLACK)
+
+(END)
+@END
+0;JMP
