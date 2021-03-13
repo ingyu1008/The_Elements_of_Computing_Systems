@@ -40,4 +40,43 @@ CHIP CPU {
 
     PARTS:
     // Put your code here:
+    
+    //A 인지 C 인지 확인
+    Mux(a=true, b=false, sel=instruction[15], out=isAoperation);
+    Not(in=isAoperation, out=isCoperation);
+
+    //13번째 비트 (A인지 M인지) 확인
+    Mux(a=true, b=false, sel=instruction[12], out=useA);
+
+    //ALU를 통한 연산
+    Mux16(a=inM, b[0..14]=A, b[15]=false, sel=useA, out=yy);
+    ALU(x=D, y=yy, zx=instruction[11], nx=instruction[10], zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6], out=res, out=outM, zr=aluzr, ng=alung); 
+
+    //6번째 비트 (A에 저장) 확인, only C일때만
+    And(a=instruction[5], b=isCoperation, out=saveOnA);
+
+    //A 이면 A 에 0~14비트 저장, 아니면 결과를 A 에 저장할건지에 따라 저장
+    Mux16(a[0..14]=instruction[0..14], a[15]=false, b=res, sel=isCoperation, out=Ain);
+    Or(a=isAoperation, b=saveOnA, out=loadA);
+    ARegister(in=Ain, load=loadA, out[0..14]=A, out[15]=trash, out[0..14]=addressM);
+
+    //5번째 비트 (M에 저장) 확인, only C일때만
+    And(a=instruction[4], b=isCoperation, out=saveOnD);
+    DRegister(in=res, load=saveOnD, out=D);
+
+    //4번째 비트 (D에 저장) 확인, only C일때만
+    And(a=instruction[3], b=isCoperation, out=writeM);
+
+    //1~3번째 비트 (점프)
+    And(a=instruction[2], b=alung, out=jump1);
+    And(a=instruction[1], b=aluzr, out=jump2);
+    Or(a=alung, b=aluzr, out=nalups);
+    Not(in=nalups, out=alups);
+    And(a=instruction[0], b=alups, out=jump3);
+
+    Or(a=jump1, b=jump2, out=jump12);
+    Or(a=jump12, b=jump3, out=doJump);
+    And(a=doJump, b=isCoperation, out=confirmedDoJump);
+
+    PC(in[0..14]=A,in[15]=false, load=confirmedDoJump, inc=true, reset=reset, out[0..14]=pc, out[15]=trash2);
 }
