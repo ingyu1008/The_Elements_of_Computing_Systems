@@ -3,6 +3,7 @@
 #include <string>
 #include <algorithm>
 #include <bitset>
+#include <map>
 
 enum cmdTypes
 {
@@ -11,7 +12,6 @@ enum cmdTypes
     L_COMMAND
 };
 
-std::ofstream fout;
 class Parser
 {
 private:
@@ -220,31 +220,123 @@ public:
     }
 };
 
-int main(int argc, char const *argv[])
+class SymbolTable : private std::map<std::string, int>
 {
-
-    Parser parser(argv[1]);
-    Code code;
-
-    fout.open("rect/out.hack");
-
-    while (parser.hasMoreCommands())
+public:
+    void addEntry(std::string symbol, int address)
     {
-        parser.advance();
-        cmdTypes type = parser.commandType();
+        this->insert({symbol, address});
+    }
+
+    bool contains(std::string symbol)
+    {
+        return this->find(symbol) != this->end();
+    }
+
+    int GetAddress(std::string symbol)
+    {
+        return this->at(symbol);
+    }
+};
+
+void init(SymbolTable &table)
+{
+    table.addEntry("SP", 0);
+    table.addEntry("LCL", 1);
+    table.addEntry("ARG", 2);
+    table.addEntry("THIS", 3);
+    table.addEntry("THAT", 4);
+    table.addEntry("R0", 0);
+    table.addEntry("R1", 1);
+    table.addEntry("R2", 2);
+    table.addEntry("R3", 3);
+    table.addEntry("R4", 4);
+    table.addEntry("R5", 5);
+    table.addEntry("R6", 6);
+    table.addEntry("R7", 7);
+    table.addEntry("R8", 8);
+    table.addEntry("R9", 9);
+    table.addEntry("R10", 10);
+    table.addEntry("R11", 11);
+    table.addEntry("R12", 12);
+    table.addEntry("R13", 13);
+    table.addEntry("R14", 14);
+    table.addEntry("R15", 15);
+    table.addEntry("SCREEN", 16384);
+    table.addEntry("KBD", 24576);
+}
+
+void first(Parser &onepass, SymbolTable &table)
+{
+    int counter = 0;
+    while (onepass.hasMoreCommands())
+    {
+        onepass.advance();
+        cmdTypes type = onepass.commandType();
         if (type == A_COMMAND)
         {
-            fout << "0";
-            std::string bits = std::bitset<15>(std::stoi(parser.symbol())).to_string();
-            fout << bits << "\n";
+            counter++;
         }
         else if (type == C_COMMAND)
         {
-            if (parser.comp().empty())
-                continue;
-            fout << "111" << code.comp(parser.comp()) << code.dest(parser.dest()) << code.jump(parser.jump()) << "\n";
+            if (!onepass.comp().empty())
+                counter++;
+        }
+        else if (type == L_COMMAND)
+        {
+            table.addEntry(onepass.symbol(), counter);
         }
     }
+}
+
+void second(Parser &twopass, Code &code, SymbolTable &table, std::ofstream &fout)
+{
+    int counter = 16;
+    while (twopass.hasMoreCommands())
+    {
+        twopass.advance();
+        cmdTypes type = twopass.commandType();
+        if (type == A_COMMAND)
+        {
+            fout << "0";
+            try
+            {
+                std::string bits = std::bitset<15>(std::stoi(twopass.symbol())).to_string();
+                fout << bits << "\n";
+            }
+            catch (std::invalid_argument e)
+            {
+                if (!table.contains(twopass.symbol()))
+                {
+                    table.addEntry(twopass.symbol(), counter);
+                    counter++;
+                }
+                std::string bits = std::bitset<15>(table.GetAddress(twopass.symbol())).to_string();
+                fout << bits << "\n";
+            }
+        }
+        else if (type == C_COMMAND)
+        {
+            if (twopass.comp().empty())
+                continue;
+            fout << "111" << code.comp(twopass.comp()) << code.dest(twopass.dest()) << code.jump(twopass.jump()) << "\n";
+        }
+    }
+}
+
+int main(int argc, char const *argv[])
+{
+    Parser onepass(argv[1]);
+    Parser twopass(argv[1]);
+    Code code;
+    SymbolTable table;
+    std::ofstream fout;
+
+    fout.open("out.hack");
+
+    init(table);
+    first(onepass, table);
+    second(twopass, code, table, fout);
 
     fout.close();
 
